@@ -1,0 +1,11 @@
+/*__pycache__
+/*egg-info
+/.vscode
+/storage
+/wandb
+/heatmaps
+/ir_MiniGrid*
+/state_MiniGrid*
+/*.gif
+/*.png
+/*.svg

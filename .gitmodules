@@ -1,0 +1,6 @@
+[submodule "torch-ac"]
+	path = torch-ac
+	url = https://github.com/ayakayal/torch-ac.git
+[submodule "Minigrid"]
+	path = Minigrid
+	url = https://github.com/ayakayal/Minigrid.git
