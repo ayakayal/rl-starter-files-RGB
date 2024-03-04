@@ -59,7 +59,7 @@ python -m scripts.train --algo ppo_diayn --env MiniGrid-DoorKey-16x16-v0 --folde
 python -m scripts.train --algo ppo_simhash2 --env MiniGrid-DoorKey-8x8-v0 --folder-name Doorkey_RGB --frames 40000000 --entropy-coef 0.0005 --ir-coef 0.005 --seed 1 --RGB True --singleton False --pretraining False --save-heatmaps False
 ```
 
-3. Train the agent on the `MiniGrid-DoorKey-8x8-v0` environment with PPO algorithm (RGB obervations) and SimHash2 but on singleton (not procedurally generated environment) to visualize heatmaps
+3. Train the agent on the `MiniGrid-DoorKey-8x8-v0` environment with PPO algorithm (RGB obervations) and SimHash2 but on singleton (not procedurally generated environment) to visualize heatmaps. Set singleton and save_heatmaps to True. Heatmaps are saved every 50 PPO updates and in a folder /heatmaps. If you would like to plot a grid of heatmaps check plot_heatmaps_grid.py, but change the path.
 ```
 python -m scripts.train --algo ppo_simhash2 --env MiniGrid-DoorKey-8x8-v0 --folder-name Doorkey_RGB --frames 40000000 --entropy-coef 0.0005 --ir-coef 0.005 --seed 1 --RGB True --singleton True --pretraining False --save-heatmaps True
 ```
