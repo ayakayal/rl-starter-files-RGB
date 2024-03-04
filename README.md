@@ -58,13 +58,14 @@ python -m scripts.train --algo ppo_diayn --env MiniGrid-DoorKey-16x16-v0 --folde
 ```
 python -m scripts.train --algo ppo_simhash2 --env MiniGrid-DoorKey-8x8-v0 --folder-name Doorkey_RGB --frames 40000000 --entropy-coef 0.0005 --ir-coef 0.005 --seed 1 --RGB True --singleton False --pretraining False --save-heatmaps False
 ```
+
 3. Train the agent on the `MiniGrid-DoorKey-8x8-v0` environment with PPO algorithm (RGB obervations) and SimHash2 but on singleton (not procedurally generated environment) to visualize heatmaps
 ```
 python -m scripts.train --algo ppo_simhash2 --env MiniGrid-DoorKey-8x8-v0 --folder-name Doorkey_RGB --frames 40000000 --entropy-coef 0.0005 --ir-coef 0.005 --seed 1 --RGB True --singleton True --pretraining False --save-heatmaps True
 ```
 <p align="center"><img src="README-rsrc/train-terminal-logs.png"></p>
 
-4. Visualize agent's behavior:
+3. Visualize agent's behavior:
 
 ```
 python -m scripts.visualize_edited --env MiniGrid-DoorKey-16x16-v0 --folder-name test --episodes 5 --model MiniGrid-DoorKey-16x16-v0 _ppo_seed1_ir0.0_ent0.0005 --gif Doorkey16_sing
@@ -74,6 +75,7 @@ python -m scripts.visualize_edited --env MiniGrid-DoorKey-16x16-v0 --folder-name
 
 
 <p align="center"><img src="README-rsrc/evaluate-terminal-logs.png"></p>
+**Note:** ppo_simhash_better_rep is for the case of Doorkey only, appending whether the key is picked up or not to the hashed key
 
 **Note:** More details on the commands are given below.
 
