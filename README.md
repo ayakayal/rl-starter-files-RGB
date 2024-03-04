@@ -38,7 +38,7 @@ Train, visualize and evaluate an agent on the `MiniGrid-DoorKey-5x5-v0` environm
 
 <p align="center"><img src="README-rsrc/doorkey.png"></p>
 
-1. Train the agent on the `MiniGrid-DoorKey-16x16-v0` environment with PPO algorithm (Grid encoding obervations) and add specific intrinsic reward algorithms:
+1. Train the agent on the `MiniGrid-DoorKey-16x16-v0` environment with PPO algorithm (Grid encoding obervations) and add specific intrinsic reward algorithms. Data is saved in /scratch/rmapkay/folder-name and logged to wandb.
 
 ```
 python -m scripts.train --algo ppo --env MiniGrid-DoorKey-16x16-v0 --folder-name Doorkey_grid_encodings --frames 40000000 --entropy-coef 0.0005 --ir-coef 0 --seed 1 --RGB False --singleton False --pretraining False --save-heatmaps False
