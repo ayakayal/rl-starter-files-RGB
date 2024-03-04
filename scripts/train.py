@@ -249,7 +249,7 @@ def main():
                                 args.optim_eps, args.clip_eps, args.epochs, args.batch_size, args.singleton_env,args.RGB,preprocess_obss,args.ir_coef)
     
     
-    elif args.algo=="ppo_simhash":
+    elif args.algo=="ppo_simhash_better_rep":
         algo= torch_ac.PPOAlgoStateHash(envs, acmodel, device, args.frames_per_proc, args.discount, args.lr, args.gae_lambda,
                                 args.entropy_coef, args.value_loss_coef, args.max_grad_norm, args.recurrence,
                                 args.optim_eps, args.clip_eps, args.epochs, args.batch_size,args.singleton_env,args.RGB, preprocess_obss,args.ir_coef,args.k)
@@ -279,7 +279,7 @@ def main():
             algo.state_visitation_pos=status["pos_dict"]
 
    # SAVE hash table for simhash only in case u need to resume training 
-    if args.algo == "ppo_simhash" or args.algo == "ppo_simhash2":
+    if args.algo == "ppo_simhash_better_rep" or args.algo == "ppo_simhash2":
         if "hash_dict" in status:
             algo.hash_function.hash= status ["hash_dict"]
     if args.algo == "ppo_icm_alain":
@@ -351,7 +351,7 @@ def main():
             header += ["entropy", "value", "policy_loss", "value_loss", "grad_norm"]
             data += [logs["entropy"], logs["value"], logs["policy_loss"], logs["value_loss"], logs["grad_norm"]]
 
-            if args.algo=="ppo_simhash" or args.algo == "ppo_simhash2":
+            if args.algo=="ppo_simhash_better_rep" or args.algo == "ppo_simhash2":
                 return_intrinsic_per_episode = utils.synthesize(logs["return_int_per_episode"])
                 header += ["return_intrinsic_" + key for key in return_intrinsic_per_episode.keys()]
                 data += return_intrinsic_per_episode.values()
@@ -413,7 +413,7 @@ def main():
                       "model_state": acmodel.state_dict(), "optimizer_state": algo.optimizer.state_dict(), "obs_dict":algo.train_state_count, "pos_dict":algo.state_visitation_pos, "found_reward":algo.found_reward}
            
 
-            if args.algo == "ppo_simhash" or args.algo == "ppo_simhash2":
+            if args.algo == "ppo_simhash_better_rep" or args.algo == "ppo_simhash2":
                 status["hash_dict"]= algo.hash_function.hash
                
             if args.algo == "ppo_icm_alain":
