@@ -75,6 +75,7 @@ python -m scripts.visualize_edited --env MiniGrid-DoorKey-16x16-v0 --folder-name
 
 
 <p align="center"><img src="README-rsrc/evaluate-terminal-logs.png"></p>
+
 **Note:** ppo_simhash_better_rep is for the case of Doorkey only, appending whether the key is picked up or not to the hashed key
 
 **Note:** More details on the commands are given below.
