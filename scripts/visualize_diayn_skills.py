@@ -1,13 +1,11 @@
 import argparse
-
-
 import utils
 from utils import device
 import os
 import torch
 import numpy as np
 os.environ["SDL_VIDEODRIVER"] = "dummy"
-
+#this file visualizes DIAYN skills separately by unrolling each skill i for several episodes
 
 # Parse arguments
 

@@ -55,7 +55,6 @@ class PPOAlgoEntropy(PPOAlgo):
             entropy = dist.entropy().detach() #I added detach here
           
             action = dist.sample()
-            #print('action',action)
             if self.vizualise_video==True:
                 self.frames.append(np.moveaxis(self.env.envs[0].get_frame(), 2, 0))
            
@@ -79,18 +78,17 @@ class PPOAlgoEntropy(PPOAlgo):
                     self.found_reward=3
                     continue
 
-            #obs, reward, terminated, truncated, _ = self.env.step(action.cpu().numpy())
-            #print('the reward is', reward)
+
             done = tuple(a | b for a, b in zip(terminated, truncated))
 
             for p in range(self.num_procs):
                 obs_tuple=tuple( obs[p]['image'].reshape(-1).tolist())
-                #print('obs tuple',len(obs_tuple))
+    
                 if obs_tuple in self.train_state_count:
                     self.train_state_count[obs_tuple]+= 1
                 else:
                     self.train_state_count[obs_tuple]=1
-            #print('hi done',done)
+ 
             # Update experiences values
 
             self.obss[i] = self.obs
@@ -101,7 +99,6 @@ class PPOAlgoEntropy(PPOAlgo):
             self.masks[i] = self.mask  
             self.mask = 1 - torch.tensor(done, device=self.device, dtype=torch.float)
             self.actions[i] = action
-            #print('action',action)
             self.values[i] = value
             if self.reshape_reward is not None:
                 self.rewards[i] = torch.tensor([
@@ -110,25 +107,19 @@ class PPOAlgoEntropy(PPOAlgo):
                 ], device=self.device)
             else:
                 self.rewards[i] = torch.tensor(reward, device=self.device)
-                ##print('self.rewards[i]',self.rewards[i])
-            #self.intrinsic_rewards[i]= torch.tensor(self.intrinsic_reward_coeff *entropy)
+    
             self.intrinsic_rewards[i]= self.intrinsic_reward_coeff *entropy.clone().detach()
             self.intrinsic_reward_per_frame=(torch.mean(self.intrinsic_rewards[i])).item()
-            #print('self.intrinsic_rewards[i]',self.intrinsic_rewards[i])   
             self.total_rewards[i]= self.intrinsic_rewards[i] + self.rewards[i] 
-            #I added this recently
             self.total_rewards[i] /= (1+self.intrinsic_reward_coeff)
             if self.singleton_env != 'False':
-                # print('yes singleton intrinsic rewards')
+
                 
                 for idx in range(len(self.intrinsic_rewards[i])):
-                    #print(self.intrinsic_rewards[i])
                     if agent_loc[idx] in self.ir_dict.keys():
-                        #print(self.intrinsic_rewards[i][idx])
                         self.ir_dict[agent_loc[idx]] += self.intrinsic_rewards[i][idx].item()
                     else:
                         self.ir_dict[agent_loc[idx]] = self.intrinsic_rewards[i][idx].item()
-                    #print('dict',self.ir_dict)
 
             self.log_probs[i] = dist.log_prob(action)
 
@@ -136,19 +127,13 @@ class PPOAlgoEntropy(PPOAlgo):
 
             self.log_episode_return += torch.tensor(reward, device=self.device, dtype=torch.float)
             self.log_episode_return_int += self.intrinsic_rewards[i].clone().detach()
-            #print(" self.log_episode_return", self.log_episode_return)
             self.log_episode_reshaped_return += self.rewards[i]
             self.log_episode_num_frames += torch.ones(self.num_procs, device=self.device)
-            #print(" self.log_episode_num_frames", self.log_episode_num_frames)
 
             for i, done_ in enumerate(done): #for any done episode in any process we append it to log_return
                 if done_:
-                    #print("i",i)
-                    #print('done',done_)
                     self.log_done_counter += 1
                     self.log_return.append(self.log_episode_return[i].item())
-        
-                    #print(" self.log_return", self.log_return)
                     self.log_reshaped_return.append(self.log_episode_reshaped_return[i].item())
                     self.log_num_frames.append(self.log_episode_num_frames[i].item())
                     self.log_return_int.append(self.log_episode_return_int[i].item())
@@ -170,18 +155,12 @@ class PPOAlgoEntropy(PPOAlgo):
                 _, next_value = self.acmodel(preprocessed_obs)
 
         for i in reversed(range(self.num_frames_per_proc)):
-            #print('i',i)
             next_mask = self.masks[i+1] if i < self.num_frames_per_proc - 1 else self.mask
-            #print('next_mask',next_mask)
             next_value = self.values[i+1] if i < self.num_frames_per_proc - 1 else next_value
             next_advantage = self.advantages[i+1] if i < self.num_frames_per_proc - 1 else 0
-            #print('next_advantages',next_advantage)
-
             delta = self.total_rewards[i] + self.discount * next_value * next_mask - self.values[i]
-            #print('delta',delta)
             self.advantages[i] = delta + self.discount * self.gae_lambda * next_advantage * next_mask
-            #print("self.advantages[i]",self.advantages[i])
-            #print("self.gae",self.gae_lambda)
+
 
         # Define experiences:
         #   the whole experience is the concatenation of the experience
@@ -201,9 +180,7 @@ class PPOAlgoEntropy(PPOAlgo):
             # T x P -> P x T -> (P * T) x 1
             exps.mask = self.masks.transpose(0, 1).reshape(-1).unsqueeze(1)
         # for all tensors below, T x P -> P x T -> P * T
-        #print("self.actions",self.actions)
         exps.action = self.actions.transpose(0, 1).reshape(-1)
-        #print("self.actions",exps.action)
         exps.value = self.values.transpose(0, 1).reshape(-1)
         exps.reward = self.rewards.transpose(0, 1).reshape(-1)
         exps.advantage = self.advantages.transpose(0, 1).reshape(-1)
@@ -217,11 +194,9 @@ class PPOAlgoEntropy(PPOAlgo):
         # Log some values
 
         keep = max(self.log_done_counter, self.num_procs)
-        #print("self.log_done_counter",self.log_done_counter)f
-        #print("self.log_return",self.log_return)
         self.number_of_visited_states= len(self.train_state_count)
         self.state_coverage= self.number_of_visited_states
-        #self.state_coverage_position=len(self.state_visitation_pos)
+
         non_zero_count=0
         for key, value in self.state_visitation_pos.items():
             if value != 0:
@@ -244,12 +219,10 @@ class PPOAlgoEntropy(PPOAlgo):
             "reward_int_per_frame":self.intrinsic_reward_per_frame,
             "ir_dict":self.ir_dict
         }
-        #print("self.log_return[-keep:]",self.log_return[-keep:])
 
         self.log_done_counter = 0
         self.log_return_int = self.log_return_int[-self.num_procs:]
         self.log_return = self.log_return[-self.num_procs:]
-        #print('self.log_return',self.log_return)
         self.log_reshaped_return = self.log_reshaped_return[-self.num_procs:]
         self.log_num_frames = self.log_num_frames[-self.num_procs:]
 

@@ -23,11 +23,13 @@ def get_storage_dir():
 def get_model_dir(model_name):
     return os.path.join(get_storage_dir(), model_name)
 
-def get_model_dir_folder(folder_name,model_name):
-    return os.path.join( f'/home/rmapkay/rl-starter-files-RGB/rl-starter-files/storage/{folder_name}', model_name)
-
 # def get_model_dir_folder(folder_name,model_name):
-#     return os.path.join( f'/home/rmapkay/scratch/{folder_name}', model_name)
+#     return os.path.join( f'/home/rmapkay/rl-starter-files-RGB/rl-starter-files/storage/{folder_name}', model_name)
+
+def get_model_dir_folder(folder_name,model_name):
+    model_dir = os.path.join("/scratch/rmapkay", folder_name, model_name)  # Construct the full path
+    os.makedirs(model_dir, exist_ok=True)
+    return model_dir
    
 
 def get_status_path(model_dir):

@@ -12,8 +12,7 @@ def worker(conn, env):
             obs, reward, terminated, truncated, info = env.step(data)
             agent_loc = env.agent_pos
             if terminated or truncated:
-                #print('yes restarted')
-                #env.seed(np.random.randint(1,5)) 
+               
                 obs, _ = env.reset()
                 agent_loc = env.agent_pos
             conn.send((obs, reward, terminated, truncated,agent_loc, info))
@@ -56,12 +55,10 @@ class ParallelEnv(gym.Env):
         obs, reward, terminated, truncated, info = self.envs[0].step(actions[0])
         agent_loc = self.envs[0].agent_pos
         if terminated or truncated:
-            #print('obs before reset',obs)
-            #add this to test
-            #self.envs[0].seed(0)
+           
             obs, _ = self.envs[0].reset()
             agent_loc = self.envs[0].agent_pos
-            #print('yup reset')
+           
         results = zip(*[(obs, reward, terminated, truncated, agent_loc,info)] + [local.recv() for local in self.locals])
         return results
     

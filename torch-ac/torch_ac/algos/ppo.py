@@ -13,7 +13,6 @@ class PPOAlgo(BaseAlgo):
                  adam_eps=1e-8, clip_eps=0.2, epochs=4, batch_size=256,singleton_env=False, RGB=False, preprocess_obss=None,
                  reshape_reward=None):
         num_frames_per_proc = num_frames_per_proc or 128
-        # print('sing after ppo',singleton_env)
         super().__init__(envs, acmodel, device, num_frames_per_proc, discount, lr, gae_lambda, entropy_coef,
                          value_loss_coef, max_grad_norm, recurrence, preprocess_obss, reshape_reward, singleton_env, RGB)
 
@@ -33,7 +32,6 @@ class PPOAlgo(BaseAlgo):
 
         for _ in range(self.epochs):
     
-            # print('epoch ',_)
             # Initialize log values
 
             log_entropies = []
@@ -44,8 +42,6 @@ class PPOAlgo(BaseAlgo):
 
             for inds in self._get_batches_starting_indexes():
                 # Initialize batch values
-                # print('all indexes',self._get_batches_starting_indexes())
-                # print(len(self._get_batches_starting_indexes()))
                 
                 batch_entropy = 0
                 batch_value = 0
@@ -155,7 +151,6 @@ class PPOAlgo(BaseAlgo):
             indexes = indexes[(indexes + self.recurrence) % self.num_frames_per_proc != 0]
             indexes += self.recurrence // 2
         self.batch_num += 1
-        #print('self.batch_size',self.batch_size)
 
         num_indexes = self.batch_size // self.recurrence
         batches_starting_indexes = [indexes[i:i+num_indexes] for i in range(0, len(indexes), num_indexes)]

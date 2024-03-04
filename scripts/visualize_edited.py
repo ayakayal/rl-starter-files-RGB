@@ -46,7 +46,7 @@ print(f"Device: {device}\n")
 # Load environment
 #env = utils.make_env(args.env, args.seed,RGB='True', render_mode="human")
 #uncomment for singleton
-env=utils.singleton_make_env(args.env,10 ,RGB='True', render_mode="human") #singleton seed was 10005
+env=utils.singleton_make_env(args.env,10005 ,RGB='True', render_mode="human") #singleton seed was 10005
 for _ in range(args.shift):
     env.reset()
 print("Environment loaded\n")
@@ -70,7 +70,7 @@ if args.gif:
 env.render()
 
 for episode in range(args.episodes):
-    #print('episode ',episode)
+    
     #obs, _ = env.reset()
     #uncomment for singleton
     obs,_=env.reset(seed=10005)
@@ -79,7 +79,7 @@ for episode in range(args.episodes):
         env.render()
         if args.gif:
             frames.append(numpy.moveaxis(env.get_frame(), 2, 0))
-            #print(frames)
+           
         action = agent.get_action(obs)
         obs, reward, terminated, truncated, _= env.step(action)
         done = terminated | truncated

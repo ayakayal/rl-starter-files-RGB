@@ -18,19 +18,22 @@ class PPOAlgoDIAYN(PPOAlgo):
                  reshape_reward)
         self.intrinsic_reward_coeff = intrinsic_reward_coeff
         self.num_skills=num_skills
+        if self.RGB=='False':
+            self.emb_size= 64 #size of the state embedding in case of grid encoding observations 
+        else:
+            self.emb_size=40000 #size of the state embedding in case of RGB obs
+           
+        
         shape = (self.num_frames_per_proc, self.num_procs)
         self.total_rewards= torch.zeros(*shape, device=self.device)
         self.pretraining= pretraining #if set to True then do not use extrinsic rewards
         #initialize intrinsic rewards
         self.intrinsic_rewards=torch.zeros(*shape, device=self.device)
-        self.q_discriminator= Discriminator(self.num_skills, 256).cuda()
-        #print('disc lr', disc_lr, ' lr ',lr)
-        self.q_discriminator_optimizer= torch.optim.Adam(self.q_discriminator.parameters(), disc_lr, eps=adam_eps) 
-        #F.log_softmax(, dim=1)
-       
+        self.q_discriminator= Discriminator(self.num_skills, self.emb_size,256).cuda()
+        self.q_discriminator_optimizer= torch.optim.Adam(self.q_discriminator.parameters(), disc_lr, eps=adam_eps)  
         self.p_z=np.full(num_skills, 1.0 / num_skills)
         self.EPS = 1E-6
-        shape_z=(self.num_frames_per_proc, self.num_procs,self.num_skills) #1 hot encoding of skills
+        shape_z=(self.num_frames_per_proc, self.num_procs,self.num_skills) # 1 hot encoding of skills
         self.z=torch.zeros(*shape_z, device=self.device, dtype=torch.int)
         self.next_z=torch.zeros(*shape_z, device=self.device, dtype=torch.int) #next round skills
         #each actor initially samples a skill z
@@ -46,11 +49,7 @@ class PPOAlgoDIAYN(PPOAlgo):
         #print('sampled skill is', self.z,' first elt',self.z[0])
         """Samples z from p(z), using probabilities in self._p_z."""
         
-        # self.z=torch.zeros(*shape, device=self.device, dtype=torch.int)
-        # #each actor initially samples a skill z
-        # for j in range(self.z.shape[1]):
-        #     self.z[0,j]=  self.sample_z()
-        #print('sampled skill is', self.z,' first elt',self.z[0])
+        
     def sample_z(self):
         return np.random.choice(self.num_skills, p=self.p_z)
     
@@ -90,7 +89,7 @@ class PPOAlgoDIAYN(PPOAlgo):
             entropy = dist.entropy().detach() #I added detach here
           
             action = dist.sample()
-            #print('action',action)
+
             if self.vizualise_video==True:
                 self.frames.append(np.moveaxis(self.env.envs[0].get_frame(), 2, 0))
             
@@ -100,8 +99,7 @@ class PPOAlgoDIAYN(PPOAlgo):
                     self.state_visitation_pos[agent_state] += 1
                 else:
                     self.state_visitation_pos[agent_state] = 1          
-            # obs, reward, terminated, truncated, _ = self.env.step(action.cpu().numpy())
-            #print('the reward is', reward)
+
             for r in reward:
                 if r!=0 and self.found_reward==0:
                     self.saved_frame_first_reward=self.total_frames
@@ -119,35 +117,28 @@ class PPOAlgoDIAYN(PPOAlgo):
 
             for p in range(self.num_procs):
                 obs_tuple=tuple( obs[p]['image'].reshape(-1).tolist())
-                #print('obs tuple',len(obs_tuple))
                 if obs_tuple in self.train_state_count:
                     self.train_state_count[obs_tuple]+= 1
                 else:
                     self.train_state_count[obs_tuple]=1
-            #print('hi done',done)
-            # Update experiences values
+            # sample new skills if episode is done
             for p, done_ in enumerate(done): #for any done episode in any process we append it to log_return
                 if not done_ and i<self.num_frames_per_proc-1:
                     self.z[i+1,p,:]=self.z[i,p,:]
-                    #print('z when done=false',self.z)
+  
                 elif done_ and i<self.num_frames_per_proc-1:
                     z_one_hot = torch.zeros(self.num_skills)
                     z_one_hot[self.sample_z()] = 1
                     self.z[i+1,p,:]=z_one_hot
-                    #print('z when done=true',self.z)
+
                 elif not done_ and i==self.num_frames_per_proc-1:
                     self.next_z[0,p,:]=self.z[i,p,:]
-                    #print('next z when done=false',self.next_z)
+
                 elif done_ and i==self.num_frames_per_proc-1:
                     z_one_hot = torch.zeros(self.num_skills)
                     z_one_hot[self.sample_z()] = 1
                     self.next_z[0,p,:]=z_one_hot
-                    #print('next z when done=true',self.next_z)
-                # elif done==True and p==self.num_procs-1:
-                #     z_one_hot = torch.zeros(self.num_skills)
-                #     z_one_hot[self.sample_z()] = 1
-                #     self.z[0,p,:]=z_one_hot
-            #print('z',self.z)
+ 
             self.obss[i] = self.obs
             self.obs = obs #this is the next state
             if self.acmodel.recurrent:
@@ -156,7 +147,6 @@ class PPOAlgoDIAYN(PPOAlgo):
             self.masks[i] = self.mask  
             self.mask = 1 - torch.tensor(done, device=self.device, dtype=torch.float)
             self.actions[i] = action
-            #print('action',action)
             self.values[i] = value
             if self.reshape_reward is not None:
                 self.rewards[i] = torch.tensor([
@@ -165,77 +155,49 @@ class PPOAlgoDIAYN(PPOAlgo):
                 ], device=self.device)
             else:
                 self.rewards[i] = torch.tensor(reward, device=self.device)
-                ##print('self.rewards[i]',self.rewards[i])
             
             preprocessed_next_obs = self.preprocess_obss(self.obs, device=self.device)
-            with torch.no_grad():
-                unnormalized_probs=self.q_discriminator(preprocessed_next_obs)
-                #print('unnormalized_probs',unnormalized_probs)
-                log_q=F.log_softmax(unnormalized_probs, dim=1)
-                # torch.gather
-                #print('log',log_q)
-                if i<self.num_frames_per_proc-1:
-                    one_hot=self.z[i+1]
-                elif i==self.num_frames_per_proc-1:
-                    one_hot=self.next_z[0]
-                z=torch.argmax(one_hot, dim=1)
-                #print('this is z',z)
-                log_q_z=torch.gather(log_q, 1,z.view(-1, 1))
-                #print('log_q_z',log_q_z)
-                #print('this is p(z)',self.p_z)
-                log_p_z=torch.log(torch.gather(torch.tensor(self.p_z,device=self.device), 0,z)+self.EPS)
-                #print('log_p_z',log_p_z)
-                self.intrinsic_rewards[i]= (torch.squeeze(log_q_z)-log_p_z).clone().detach()
-            #print('self.intrinsic_rewards[i]',self.intrinsic_rewards[i])
-            self.total_rewards[i]=  self.rewards[i] + self.intrinsic_reward_coeff * self.intrinsic_rewards[i]
-            if self.pretraining != 'False':
-                print('using intrinsic rewards only')
-                self.total_rewards[i]= self.intrinsic_reward_coeff * self.intrinsic_rewards[i]
+
+            if self.pretraining == 'True':
+                with torch.no_grad():
+                    unnormalized_probs=self.q_discriminator(preprocessed_next_obs)
+                    log_q=F.log_softmax(unnormalized_probs, dim=1)
+                    if i<self.num_frames_per_proc-1:
+                        one_hot=self.z[i+1]
+                    elif i==self.num_frames_per_proc-1:
+                        one_hot=self.next_z[0]
+                    z=torch.argmax(one_hot, dim=1)
+                    log_q_z=torch.gather(log_q, 1,z.view(-1, 1))
+                    log_p_z=torch.log(torch.gather(torch.tensor(self.p_z,device=self.device), 0,z)+self.EPS)
+                    self.intrinsic_rewards[i]= (torch.squeeze(log_q_z)-log_p_z).clone().detach()
+                self.total_rewards[i]= self.intrinsic_reward_coeff * self.intrinsic_rewards[i]  
+            else:
+
+                self.total_rewards[i]=  self.rewards[i] + self.intrinsic_reward_coeff * self.intrinsic_rewards[i]
 
             self.intrinsic_reward_per_frame=(torch.mean(self.intrinsic_reward_coeff * self.intrinsic_rewards[i])).item()
             temp_rewards_int=self.intrinsic_reward_coeff*self.intrinsic_rewards[i]
-            if self.singleton_env != 'False':
-                # print('yes singleton intrinsic rewards')
-                
+            if self.singleton_env != 'False':        
                 for idx in range(len( temp_rewards_int)):
-                    #print(self.intrinsic_rewards[i])
                     if agent_loc[idx] in self.ir_dict.keys():
-                        #print(self.intrinsic_rewards[i][idx])
+
                         self.ir_dict[agent_loc[idx]] +=  temp_rewards_int[idx].item()
                     else:
                         self.ir_dict[agent_loc[idx]] =  temp_rewards_int[idx].item()
-            #print('self.ir_dict',self.ir_dict)
-            #uncomment if you want to scale
-            # print('self.total_rewards',self.total_rewards[i])
-            # min_value = torch.min(self.total_rewards[i])
-            # max_value = torch.max(self.total_rewards[i])
 
-            # # Scale the values between 0 and 1
-            # scaled_values = (self.total_rewards[i] - min_value) / (max_value - min_value)
-
-            # print(scaled_values)
-            # self.total_rewards[i]=scaled_values
-            #print('self.total_rewards',self.total_rewards[i])
             
             self.log_probs[i] = dist.log_prob(action)
 
             # Update log values
 
             self.log_episode_return += torch.tensor(reward, device=self.device, dtype=torch.float)
-            #print(" self.log_episode_return", self.log_episode_return)
             self.log_episode_reshaped_return += self.rewards[i]
             self.log_episode_num_frames += torch.ones(self.num_procs, device=self.device)
-            #print(" self.log_episode_num_frames", self.log_episode_num_frames)
             self.log_episode_return_int += self.intrinsic_rewards[i].clone().detach() * self.intrinsic_reward_coeff
-            #print('self.log_episode_return_int',self.log_episode_return_int)
             for i, done_ in enumerate(done): #for any done episode in any process we append it to log_return
                 if done_:
-                    #print("i",i) 
-                    #print('done',done_)
                     self.log_done_counter += 1
                     self.log_return.append(self.log_episode_return[i].item())
-
-                    #print(" self.log_return", self.log_return)
                     self.log_reshaped_return.append(self.log_episode_reshaped_return[i].item())
                     self.log_num_frames.append(self.log_episode_num_frames[i].item())
                     self.log_return_int.append(self.log_episode_return_int[i].item())
@@ -248,17 +210,8 @@ class PPOAlgoDIAYN(PPOAlgo):
         
         ## store your skills    
         exps = DictList()
-        # exps.skills= [self.z[i][j]
-        #             for j in range(self.num_procs)
-        #             for i in range(self.num_frames_p#er_proc)]
-        # print('exps.skills',exps.skills)
         exps.skills=self.z.transpose(0,1).reshape(self.num_procs*self.num_frames_per_proc,self.num_skills)
-        #print('exps.skills',exps.skills)
-        # Add advantage and return to experiences
-
-       
         self.z=self.next_z.clone()
-        #print('self.z finally',self.z)
         preprocessed_obs = self.preprocess_obss(self.obs, device=self.device)
         with torch.no_grad():
             if self.acmodel.recurrent:
@@ -267,18 +220,11 @@ class PPOAlgoDIAYN(PPOAlgo):
                 _, next_value = self.acmodel(preprocessed_obs,skill=self.z[0][:][:])
 
         for i in reversed(range(self.num_frames_per_proc)):
-            #print('i',i)
             next_mask = self.masks[i+1] if i < self.num_frames_per_proc - 1 else self.mask
-            #print('next_mask',next_mask)
             next_value = self.values[i+1] if i < self.num_frames_per_proc - 1 else next_value
             next_advantage = self.advantages[i+1] if i < self.num_frames_per_proc - 1 else 0
-            #print('next_advantages',next_advantage)
-
             delta = self.total_rewards[i] + self.discount * next_value * next_mask - self.values[i]
-            #print('delta',delta)
             self.advantages[i] = delta + self.discount * self.gae_lambda * next_advantage * next_mask
-            #print("self.advantages[i]",self.advantages[i])
-            #print("self.gae",self.gae_lambda)
 
         # Define experiences:
         #   the whole experience is the concatenation of the experience
@@ -298,9 +244,7 @@ class PPOAlgoDIAYN(PPOAlgo):
             # T x P -> P x T -> (P * T) x 1
             exps.mask = self.masks.transpose(0, 1).reshape(-1).unsqueeze(1)
         # for all tensors below, T x P -> P x T -> P * T
-        #print("self.actions",self.actions)
         exps.action = self.actions.transpose(0, 1).reshape(-1)
-        #print("self.actions",exps.action)
         exps.value = self.values.transpose(0, 1).reshape(-1)
         exps.reward = self.rewards.transpose(0, 1).reshape(-1)
         exps.advantage = self.advantages.transpose(0, 1).reshape(-1)
@@ -315,12 +259,9 @@ class PPOAlgoDIAYN(PPOAlgo):
         # Log some values
 
         keep = max(self.log_done_counter, self.num_procs)
-        #print("self.log_done_counter",self.log_done_counter)f
-        #print("self.log_return",self.log_return)
         self.number_of_visited_states= len(self.train_state_count)
          #size of the grid and the possible combinations of object index, color and status
         self.state_coverage= self.number_of_visited_states
-        #self.state_coverage_position=len(self.state_visitation_pos)
         non_zero_count=0
         for key, value in self.state_visitation_pos.items():
             if value != 0:
@@ -342,19 +283,17 @@ class PPOAlgoDIAYN(PPOAlgo):
             "reward_int_per_frame":self.intrinsic_reward_per_frame,
             "ir_dict":self.ir_dict
         }
-        #print("self.log_return[-keep:]",self.log_return[-keep:])
 
         self.log_done_counter = 0
         self.log_return_int = self.log_return_int[-self.num_procs:]
         self.log_return = self.log_return[-self.num_procs:]
-        #print('self.log_return',self.log_return)
         self.log_reshaped_return = self.log_reshaped_return[-self.num_procs:]
         self.log_num_frames = self.log_num_frames[-self.num_procs:]
 
         return exps, logs, self.frames
     
     def update_parameters(self, exps):
-        kl_div= self._calculate_KL_Div(exps)
+        kl_div= self._calculate_KL_Div(exps) #uncomment if u do not want to measure KL divergence during training
         # Collect experiences
         for _ in range(self.epochs):
             # Initialize log values
@@ -365,20 +304,16 @@ class PPOAlgoDIAYN(PPOAlgo):
             log_value_losses = []
             log_grad_norms = []
             log_discriminator_losses=[]
-            # log_batch_diversity=[]
 
             for inds in self._get_batches_starting_indexes():
-                # Initialize batch values
-                #print('indexes',inds)
-                #print('len',len(inds))
+
                 batch_entropy = 0
                 batch_value = 0
                 batch_policy_loss = 0
                 batch_value_loss = 0
                 batch_loss = 0
                 batch_discriminator_loss = 0
-                #batch_diversity = 0
-                # Initialize memory
+
 
                 if self.acmodel.recurrent:
                     memory = exps.memory[inds]
@@ -394,7 +329,7 @@ class PPOAlgoDIAYN(PPOAlgo):
                         dist, value, memory = self.acmodel(sb.obs, memory * sb.mask,skill=sb.skills)
                     else:
                         dist, value = self.acmodel(sb.obs,skill=sb.skills)
-                    #print('sb.skills',sb.skills)
+
                     
                     entropy = dist.entropy().mean()
 
@@ -412,18 +347,17 @@ class PPOAlgoDIAYN(PPOAlgo):
 
                     #add discriminator loss
                     unnormalized_probs=self.q_discriminator(sb.obs)
-
-                    #print('unnormalized probs',unnormalized_probs)
-                   # print('sb.skills',sb.skills)
                     z_targets=torch.argmax(sb.skills, dim=1).long()
-                   # print('z targets',z_targets)
+
                     # loss_function=torch.nn.CrossEntropyLoss(reduction='mean')
                     # discriminator_loss=loss_function(unnormalized_probs,z_targets)
                     log_soft_pred_probs= F.log_softmax(unnormalized_probs,dim=1)
-                    discriminator_loss= F.nll_loss(log_soft_pred_probs,
-                                           target = z_targets,
-                                           reduction='none')
-                    discriminator_loss=discriminator_loss.mean()
+                    if self.pretraining== 'True':
+                        print('pretraining')
+                        discriminator_loss= F.nll_loss(log_soft_pred_probs,
+                                            target = z_targets,
+                                            reduction='none')
+                        discriminator_loss=discriminator_loss.mean()
                     
                     # Update batch values
 
@@ -432,7 +366,8 @@ class PPOAlgoDIAYN(PPOAlgo):
                     batch_policy_loss += policy_loss.item()
                     batch_value_loss += value_loss.item()
                     batch_loss += loss
-                    batch_discriminator_loss+=discriminator_loss
+                    if self.pretraining== 'True':
+                        batch_discriminator_loss+=discriminator_loss
                  
 
                     # Update memories for next epoch
@@ -447,7 +382,8 @@ class PPOAlgoDIAYN(PPOAlgo):
                 batch_policy_loss /= self.recurrence
                 batch_value_loss /= self.recurrence
                 batch_loss /= self.recurrence
-                batch_discriminator_loss/=self.recurrence
+                if self.pretraining== 'True':
+                    batch_discriminator_loss/=self.recurrence
                 # Update actor-critic
 
                 self.optimizer.zero_grad()
@@ -457,10 +393,11 @@ class PPOAlgoDIAYN(PPOAlgo):
                 self.optimizer.step()
                 
                 #Update discriminator
-                self.q_discriminator_optimizer.zero_grad()
-                batch_discriminator_loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.q_discriminator.parameters(), self.max_grad_norm)
-                self.q_discriminator_optimizer.step()
+                if self.pretraining== 'True':
+                    self.q_discriminator_optimizer.zero_grad()
+                    batch_discriminator_loss.backward()
+                    torch.nn.utils.clip_grad_norm_(self.q_discriminator.parameters(), self.max_grad_norm)
+                    self.q_discriminator_optimizer.step()
                 # Update log values
 
                 log_entropies.append(batch_entropy)
@@ -468,11 +405,13 @@ class PPOAlgoDIAYN(PPOAlgo):
                 log_policy_losses.append(batch_policy_loss)
                 log_value_losses.append(batch_value_loss)
                 log_grad_norms.append(grad_norm)
-                log_discriminator_losses.append(batch_discriminator_loss.item())
-               
-                #print('log_policy_losses',log_policy_losses)
-                #print('log_discriminator_losses',log_discriminator_losses)
+                if self.pretraining== 'True':
+                    log_discriminator_losses.append(batch_discriminator_loss.item())
+                else: 
+                    log_discriminator_losses.append(0)
 
+        
+    
         # Log some values
            
         logs = {
@@ -488,11 +427,7 @@ class PPOAlgoDIAYN(PPOAlgo):
         return logs
         
     def _calculate_KL_Div(self,exps): #Taking all num_frames experiences collected to calculate div
-        # indexes = np.arange(0, self.num_frames, self.recurrence)
-        # indexes = np.random.permutation(indexes)
-        # random_batch_indexes = [indexes[0:self.num_frames]]
-        # print('random_batch_indexes',random_batch_indexes)
-        # sb = exps[random_batch_indexes]
+
         sb=exps
         memory = exps.memory
         prob_dist_per_skill= {}
@@ -531,9 +466,6 @@ class PPOAlgoDIAYN(PPOAlgo):
         # Sum up all the individual KL divergences (excluding diagonals)
         average_kl_divergence = kl_divergences.sum()/total_combinations
 
-    
-
-        #print('hey',average_kl_divergence.item())
         return average_kl_divergence.item()
 
 def kl_divergence(p, q):

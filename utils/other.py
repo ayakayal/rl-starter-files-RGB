@@ -5,9 +5,7 @@ import collections
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#torch.cuda.set_device(1) #it was 6
-#print('cuda', torch.cuda.current_device())
-#torch.cuda.set_device(0) #it was 6
+#torch.cuda.set_device(1) 
 def seed(seed):
     random.seed(seed)
     numpy.random.seed(seed)

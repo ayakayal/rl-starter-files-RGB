@@ -69,12 +69,12 @@ class ICMModule():
             # prediction of s' taken into account also actual environment action
             act = actions.unsqueeze(0).unsqueeze(0) # add dimensions for the scalar to become a "list"; then add batch dim
             pred_next_state_emb = self.forward_dynamics(state_emb,act)
-            # print('state emb {}; pred_next_state: {}'.format(state_emb.shape,pred_next_state_emb.shape))
+           
 
 
         # Calculate intrinsic rewards; we get [batch, num_feature_prediction]
         intrinsic_reward = torch.norm(pred_next_state_emb - next_state_emb, dim=1, p=2)
-        # print('INt rw new:',intrinsic_reward)
+        
 
         return intrinsic_reward.item()
 
@@ -98,7 +98,7 @@ class ICMModule():
         # pre-process
         log_soft_pred_actions = F.log_softmax(pred_actions,dim=1)
         true_actions = true_actions.long() # int tensor type; Long is required for nll_loss
-        #print('log_soft_pref_actions:',log_soft_pred_actions)
+       
         # generate cross_entropy/nll_loss
         # expected input to be:
         #  - log_soft_pred_actions --> [batch,action_size] action_size are the log probs for each action
@@ -106,7 +106,7 @@ class ICMModule():
         inverse_dynamics_loss = F.nll_loss(log_soft_pred_actions,
                                            target = true_actions.flatten(),
                                            reduction='none')
-        # print('cross entropy loss:', inverse_dynamics_loss.shape)
+       
 
         # finally get the avg loss of the whole batch
         inverse_dynamics_loss = torch.mean(inverse_dynamics_loss, dim=0)
@@ -116,9 +116,7 @@ class ICMModule():
         # 2. loss of forward module
         pred_next_state_emb = self.forward_dynamics(state_emb,actions)
         forward_dynamics_loss = torch.norm(pred_next_state_emb - next_state_emb, dim=1, p=2)
-        # print('pred next_state_embedding:',pred_next_state_emb.shape)
-        # print('next_state_embedding:',next_state_emb.shape)
-        # print('fwloss.shape:',forward_dynamics_loss.shape)
+        
         forward_dynamics_loss = torch.mean(forward_dynamics_loss, dim=0)
         # *********************************************************************
 
@@ -153,35 +151,6 @@ def init(module, weight_init, bias_init, gain=1):
     bias_init(module.bias.data)
     return module
 
-# class EmbeddingNetwork_RIDE(nn.Module):
-#     """
-#      Based on the architectures selected at minigrid in RIDE:
-#      https://github.com/facebookresearch/impact-driven-exploration/blob/877c4ea530cc0ca3902211dba4e922bf8c3ce276/src/models.py#L352    """
-#     def __init__(self):
-#         super().__init__()
-
-#         input_size=7*7*3
-#         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-#                             constant_(x, 0), nn.init.calculate_gain('relu'))
-
-#         self.feature_extractor = nn.Sequential(
-#             init_(nn.Conv2d(in_channels=3,out_channels=32,kernel_size=3,stride=2,padding=1)),
-#             nn.ELU(),
-#             init_(nn.Conv2d(in_channels=32,out_channels=32,kernel_size=3,stride=2,padding=1)),
-#             nn.ELU(),
-#             init_(nn.Conv2d(in_channels=32,out_channels=32,kernel_size=3,stride=2,padding=1)),
-#             nn.ELU(),
-#         )
-#         # params = sum(p.numel() for p in self.modules.parameters())
-#         # print('Params:',params)
-
-
-
-#     def forward(self, next_obs):
-#         feature = self.feature_extractor(next_obs)
-#         reshape = feature.view(feature.size(0),-1)
-
-#         return reshape
 def init_params(m):
     
     classname = m.__class__.__name__
@@ -214,8 +183,7 @@ class EmbeddingNetwork_RIDE(nn.Module):
         )
          
         self.apply(init_params)
-        # params = sum(p.numel() for p in self.modules.parameters())
-        # print('Params:',params)
+      
 
 
 

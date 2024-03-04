@@ -5,14 +5,13 @@ import torch.nn.functional as F
 from torch_ac.algos.base import BaseAlgo
 
 
-class A2CAlgo(BaseAlgo): #i changed it to BaseAlgoCount/BaseAlgoCountProcs it was BaseAlgo
+class A2CAlgo(BaseAlgo): 
     """The Advantage Actor-Critic algorithm."""
 
     def __init__(self, envs, acmodel, device=None, num_frames_per_proc=None, discount=0.99, lr=0.01, gae_lambda=0.95,
                  entropy_coef=0.01, value_loss_coef=0.5, max_grad_norm=0.5, recurrence=4,
                  rmsprop_alpha=0.99, rmsprop_eps=1e-8, preprocess_obss=None, reshape_reward=None):
-        print('change here')
-        print('change here again')
+      
         num_frames_per_proc = num_frames_per_proc or 8
 
         super().__init__(envs, acmodel, device, num_frames_per_proc, discount, lr, gae_lambda, entropy_coef,
@@ -25,7 +24,7 @@ class A2CAlgo(BaseAlgo): #i changed it to BaseAlgoCount/BaseAlgoCountProcs it wa
         # Compute starting indexes
 
         inds = self._get_starting_indexes()
-        #print("indexes",inds)
+       
 
         # Initialize update values
 
@@ -39,38 +38,33 @@ class A2CAlgo(BaseAlgo): #i changed it to BaseAlgoCount/BaseAlgoCountProcs it wa
 
         if self.acmodel.recurrent:
             memory = exps.memory[inds]
-            #print("memory",memory)
-            #print("indexes",inds)
-            #print("experiences",exps.keys())
+           
         for i in range(self.recurrence):
             # Create a sub-batch of experience
             
             sb = exps[inds + i]
-            #print('inds+i',inds+i)
-            #print("sub-batch",sb.obs['image'])
+           
             # Compute loss
 
             if self.acmodel.recurrent:
                 dist, value, memory = self.acmodel(sb.obs, memory * sb.mask)
-                #print('value',value)
-                #print('memory',memory)
+                
             else:
                 dist, value = self.acmodel(sb.obs)
-            #print("the value function is",value)
+            
             entropy = dist.entropy().mean()
-            #print("sb.advantage.shape",sb.advantage.shape)
-            #print("policy loss before averaging",-dist.log_prob(sb.action) * sb.advantage)
+           
             policy_loss = -(dist.log_prob(sb.action) * sb.advantage).mean() #averaging over all observations, and over all processes
 
             value_loss = (value - sb.returnn).pow(2).mean() #same (averaged over all observations and processes)
 
             loss = policy_loss - self.entropy_coef * entropy + self.value_loss_coef * value_loss
-            #print('loss',loss)
+            
             # Update batch values
 
             update_entropy += entropy.item()
             update_value += value.mean().item() #just averaging the values of the observations collected in experience
-            #print("update value",update_value)
+           
             update_policy_loss += policy_loss.item()
             update_value_loss += value_loss.item()
             update_loss += loss

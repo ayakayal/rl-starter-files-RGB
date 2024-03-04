@@ -9,9 +9,7 @@ from torch_ac.algos import PPOAlgo
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import minigrid.core
     
-# SimHash with better state representation for the case of Doorkey only, appending whether the key is picked up or not to the hashed key
 class EmbeddingNetwork(nn.Module):
     """
      Based on the architectures selected at minigrid in RIDE:
@@ -43,47 +41,37 @@ class SimHash(object) :
     ''' Hashing between continuous state space and discrete state space '''
     self.hash = {}
     #self.A = np.random.normal(0,1, (k , state_emb_size)) #on the CPU
-    self.A = torch.normal(0,1, (k , state_emb_size)).to('cuda') #comment for method 2
-    #self.A = torch.normal(0,1, (k , state_emb_size+1)).to('cuda') # method1 the +1 dimension here is to account for the key
+    self.A = torch.normal(0,1, (k , state_emb_size)).to('cuda')
     self.device = device
     self.embedding_network=state_emb_function
 
-  def count(self, preprocessed_states,key_picked_up_tensor) :
+  def count(self, preprocessed_states) :
     ''' Increase the count for the states and retourn the counts '''
     counts = []
-    #state embedding phase
-    #print('key_picked_up_tensor',key_picked_up_tensor)
     state_embeddings=self.embedding_network(preprocessed_states)
-    #print('state_embeddings',state_embeddings.shape)
-    #state_embeddings_with_key_info = torch.cat((state_embeddings, key_picked_up_tensor.unsqueeze(1)), dim=1) #method 1
-    #print(' state_embeddings_with_key_info', state_embeddings_with_key_info[:,512])
-    keys_before_picked_up_info = torch.matmul(self.A, state_embeddings.t()) #uncomment for method 2
-    keys = torch.cat((keys_before_picked_up_info.t(), key_picked_up_tensor.unsqueeze(1)), dim=1) #uncomment for method 3
-    keys = torch.sign(keys) #for method 2
-    #keys = torch.sign(torch.matmul(self.A, state_embeddings_with_key_info.t())) #uncomment for method 1
-    # print('keys shape',keys.shape)
+    keys = torch.sign(torch.matmul(self.A, state_embeddings.t()))
 
    
-    for key in keys: #it was keys.t() for method 1
-        #key = tuple(key.tolist()) 
-        # print('key',key) # Convert to tuple for dictionary key
+    for key in keys.t():
+       
         key=tuple(key.tolist()) #necessary to make it uniquely hashable
         if key in self.hash:
             self.hash[key] += 1
         else:
             self.hash[key] = 1
+       
         counts.append(self.hash[key])
 
     return torch.tensor(counts, device=self.device)
 
 
 
-class PPOAlgoStateHash(PPOAlgo):
+class PPOAlgoStateHash2(PPOAlgo):
     def __init__(self, envs, acmodel, device=None, num_frames_per_proc=None, discount=0.99, lr=0.001, gae_lambda=0.95,
                  entropy_coef=0.01, value_loss_coef=0.5, max_grad_norm=0.5, recurrence=4,
                  adam_eps=1e-8, clip_eps=0.2, epochs=4, batch_size=256,singleton_env=False, RGB=False, preprocess_obss=None,intrinsic_reward_coeff=0.0001,k=256,
                  reshape_reward=None): 
-
+        print('sing after ppo',singleton_env)
         super().__init__(envs, acmodel, device, num_frames_per_proc, discount, lr, gae_lambda,
                  entropy_coef, value_loss_coef, max_grad_norm, recurrence,
                  adam_eps, clip_eps, epochs, batch_size, singleton_env,RGB, preprocess_obss,
@@ -148,28 +136,13 @@ class PPOAlgoStateHash(PPOAlgo):
                     self.saved_frame_third_reward=self.total_frames
                     self.found_reward=3
                     continue
-           
+
             temp_irewards=torch.zeros(self.num_procs, device=self.device).detach()
             
-            
             preprocessed_states = self.preprocess_obss(obs, device=self.device)
-            key_picked_up_list=[]
-            for env in self.env.envs:
-                key_picked_up= True #assume key is picked up
-                # print(env.grid.grid)
-                for item in env.grid.grid:
-    
-                    if item and isinstance(item, minigrid.core.world_object.Key): #if key is there then it's not pickedup
-                    
-                        key_picked_up = False
-                        break
-                # if key_picked_up == True:
-                #     print('key is picked_up')
-                key_picked_up_list.append(key_picked_up)
-            key_picked_up_tensor = torch.tensor(key_picked_up_list, device=self.device)
             with torch.no_grad():
-                counts=self.hash_function.count(preprocessed_states,key_picked_up_tensor )
-               
+                counts=self.hash_function.count(preprocessed_states)
+                
 
             temp_irewards= self.intrinsic_reward_coeff / torch.sqrt(counts)
             self.intrinsic_rewards[i]=temp_irewards.clone().detach()
@@ -200,18 +173,19 @@ class PPOAlgoStateHash(PPOAlgo):
                 ], device=self.device)
             else:
                 self.rewards[i] = torch.tensor(reward, device=self.device)
+
             self.total_rewards[i]= self.intrinsic_rewards[i] + self.rewards[i]
             self.total_rewards[i] /= (1+self.intrinsic_reward_coeff)
 
             if self.singleton_env != 'False':
-     
+                
                 for idx in range(len(self.intrinsic_rewards[i])):
-        
                     if agent_loc[idx] in self.ir_dict.keys():
-         
+                       
                         self.ir_dict[agent_loc[idx]] += self.intrinsic_rewards[i][idx].item()
                     else:
                         self.ir_dict[agent_loc[idx]] = self.intrinsic_rewards[i][idx].item()
+                   
 
             self.log_probs[i] = dist.log_prob(action)
             # Update log values
@@ -220,10 +194,10 @@ class PPOAlgoStateHash(PPOAlgo):
             self.log_episode_return_int += self.intrinsic_rewards[i].clone().detach()
             self.log_episode_reshaped_return += self.rewards[i]
             self.log_episode_num_frames += torch.ones(self.num_procs, device=self.device)
+        
 
             for i, done_ in enumerate(done):
                 if done_:
-
                     self.log_done_counter += 1
                     self.log_return.append(self.log_episode_return[i].item())
                     self.log_reshaped_return.append(self.log_episode_reshaped_return[i].item())
@@ -251,9 +225,8 @@ class PPOAlgoStateHash(PPOAlgo):
             next_value = self.values[i+1] if i < self.num_frames_per_proc - 1 else next_value
             next_advantage = self.advantages[i+1] if i < self.num_frames_per_proc - 1 else 0
             delta = self.total_rewards[i] + self.discount * next_value * next_mask - self.values[i]
- 
             self.advantages[i] = delta + self.discount * self.gae_lambda * next_advantage * next_mask #it was delta instead of delta_intrinsic
-
+            
 
         # Define experiences:
         #   the whole experience is the concatenation of the experience
@@ -273,6 +246,7 @@ class PPOAlgoStateHash(PPOAlgo):
             # T x P -> P x T -> (P * T) x 1
             exps.mask = self.masks.transpose(0, 1).reshape(-1).unsqueeze(1)
         # for all tensors below, T x P -> P x T -> P * T
+       
         exps.action = self.actions.transpose(0, 1).reshape(-1)
         exps.value = self.values.transpose(0, 1).reshape(-1)
         exps.reward = self.rewards.transpose(0, 1).reshape(-1)
@@ -284,13 +258,14 @@ class PPOAlgoStateHash(PPOAlgo):
         # Preprocess experiences
 
         exps.obs = self.preprocess_obss(exps.obs, device=self.device)
-
+        
         # Log some values
 
         keep = max(self.log_done_counter, self.num_procs)
         self.number_of_visited_states= len(self.train_state_count)
          #size of the grid and the possible combinations of object index, color and status
         self.state_coverage= self.number_of_visited_states #percentage of state coverage
+
         non_zero_count=0
         for key, value in self.state_visitation_pos.items():
             if value != 0:
