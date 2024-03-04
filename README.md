@@ -54,7 +54,7 @@ python -m scripts.train --algo ppo_diayn --env MiniGrid-DoorKey-16x16-v0 --folde
 python -m scripts.train --algo ppo_diayn --env MiniGrid-DoorKey-16x16-v0 --folder-name Doorkey_grid_encodings --frames 40000000 --entropy-coef 0.0005 --ir-coef 0 --seed 1 --RGB False --singleton False --pretraining False --save-heatmaps False --pretrained-model-name MiniGrid-DoorKey-16x16-v0_ppo_diayn_seed1_ir0.01_ent0.0005_sk10_dis0.0003  --folder-name-pretrained-model Doorkey_grid_encodings
 
 ```
-2. Train the agent on the `MiniGrid-DoorKey-8x8-v0` environment with PPO algorithm (RGB obervations) and add SimHash2 instead of State Count as intrinsic reward because it is not possible to count raw pixels:
+2. Train the agent on the `MiniGrid-DoorKey-8x8-v0` environment with PPO algorithm (RGB obervations) and add SimHash2 instead of State Count as intrinsic reward because it is not possible to count raw pixels. you can use all other intrinsic rewards as they are with RGB=True.
 ```
 python -m scripts.train --algo ppo_simhash2 --env MiniGrid-DoorKey-8x8-v0 --folder-name Doorkey_RGB --frames 40000000 --entropy-coef 0.0005 --ir-coef 0.005 --seed 1 --RGB True --singleton False --pretraining False --save-heatmaps False
 ```
