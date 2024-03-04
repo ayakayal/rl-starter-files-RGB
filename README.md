@@ -11,10 +11,10 @@ These files are suited for [`gym-minigrid`](https://github.com/maximecb/gym-mini
 ## Features
 
 - **Script to train**, including:
-  - Log in txt, CSV and Tensorboard
+  - Log in txt, CSV and Wandb
   - Save model
   - Stop and restart training
-  - Use A2C or PPO algorithms
+  - Use PPO algorithm not A2C 
 - **Script to visualize**, including:
   - Act by sampling or argmax
   - Save as Gif
@@ -32,23 +32,27 @@ These files are suited for [`gym-minigrid`](https://github.com/maximecb/gym-mini
 pip3 install -r requirements.txt
 ```
 
-**Note:** If you want to modify `torch-ac` algorithms, you will need to rather install a cloned version, i.e.:
-```
-git clone https://github.com/lcswillems/torch-ac.git
-cd torch-ac
-pip3 install -e .
-```
-
 ## Example of use
 
 Train, visualize and evaluate an agent on the `MiniGrid-DoorKey-5x5-v0` environment:
 
 <p align="center"><img src="README-rsrc/doorkey.png"></p>
 
-1. Train the agent on the `MiniGrid-DoorKey-5x5-v0` environment with PPO algorithm:
+1. Train the agent on the `MiniGrid-DoorKey-16x16-v0` environment with PPO algorithm and other intrinsic rewards:
 
 ```
-python3 -m scripts.train --algo ppo --env MiniGrid-DoorKey-5x5-v0 --model DoorKey --save-interval 10 --frames 80000
+python -m scripts.train --algo ppo --env MiniGrid-DoorKey-16x16-v0 --folder-name Doorkey_grid_encodings --frames 40000000 --entropy-coef 0.0005 --ir-coef 0 --seed 1 --RGB False --singleton False --pretraining False --save-heatmaps False
+
+python -m scripts.train --algo ppo_state_count --env MiniGrid-DoorKey-16x16-v0 --folder-name Doorkey_grid_encodings --frames 40000000 --entropy-coef 0.0005 --ir-coef 0.005 --seed 1 --RGB False --singleton False --pretraining False --save-heatmaps False
+
+python -m scripts.train --algo ppo_entropy --env MiniGrid-DoorKey-16x16-v0 --folder-name Doorkey_grid_encodings --frames 40000000 --entropy-coef 0.0005 --ir-coef 0.0005 --seed 1 --RGB False --singleton False --pretraining False --save-heatmaps False
+
+python -m scripts.train --algo ppo_icm_alain --env MiniGrid-DoorKey-16x16-v0 --folder-name Doorkey_grid_encodings --frames 40000000 --entropy-coef 0.0005 --ir-coef 0.05 --seed 1 --RGB False --singleton False --pretraining False --save-heatmaps False
+
+python -m scripts.train --algo ppo_diayn --env MiniGrid-DoorKey-16x16-v0 --folder-name Doorkey_grid_encodings --frames 40000000 --entropy-coef 0.0005 --ir-coef 0.01 --seed 1 --RGB False --singleton False --pretraining True --save-heatmaps False
+
+python -m scripts.train --algo ppo_diayn --env MiniGrid-DoorKey-16x16-v0 --folder-name Doorkey_grid_encodings --frames 40000000 --entropy-coef 0.0005 --ir-coef 0 --seed 1 --RGB False --singleton False --pretraining False --save-heatmaps False --pretrained-model-name MiniGrid-DoorKey-16x16-v0_ppo_diayn_seed1_ir0.01_ent0.0005_sk10_dis0.0003  --folder-name-pretrained-model Doorkey_grid_encodings
+
 ```
 
 <p align="center"><img src="README-rsrc/train-terminal-logs.png"></p>
@@ -56,7 +60,7 @@ python3 -m scripts.train --algo ppo --env MiniGrid-DoorKey-5x5-v0 --model DoorKe
 2. Visualize agent's behavior:
 
 ```
-python3 -m scripts.visualize --env MiniGrid-DoorKey-5x5-v0 --model DoorKey
+python3 -m scripts.visualize --env MiniGrid-DoorKey-16x16-v0 --model DoorKey
 ```
 
 <p align="center"><img src="README-rsrc/visualize-doorkey.gif"></p>
@@ -64,7 +68,7 @@ python3 -m scripts.visualize --env MiniGrid-DoorKey-5x5-v0 --model DoorKey
 3. Evaluate agent's performance:
 
 ```
-python3 -m scripts.evaluate --env MiniGrid-DoorKey-5x5-v0 --model DoorKey
+python3 -m scripts.evaluate --env MiniGrid-DoorKey-16x16-v0 --model DoorKey
 ```
 
 <p align="center"><img src="README-rsrc/evaluate-terminal-logs.png"></p>
@@ -73,25 +77,7 @@ python3 -m scripts.evaluate --env MiniGrid-DoorKey-5x5-v0 --model DoorKey
 
 ## Other examples
 
-### Handle textual instructions
 
-In the `GoToDoor` environment, the agent receives an image along with a textual instruction. To handle the latter, add `--text` to the command:
-
-```
-python3 -m scripts.train --algo ppo --env MiniGrid-GoToDoor-5x5-v0 --model GoToDoor --text --save-interval 10 --frames 1000000
-```
-
-<p align="center"><img src="README-rsrc/visualize-gotodoor.gif"></p>
-
-### Add memory
-
-In the `RedBlueDoors` environment, the agent has to open the red door then the blue one. To solve it efficiently, when it opens the red door, it has to remember it. To add memory to the agent, add `--recurrence X` to the command:
-
-```
-python3 -m scripts.train --algo ppo --env MiniGrid-RedBlueDoors-6x6-v0 --model RedBlueDoors --recurrence 4 --save-interval 10 --frames 1000000
-```
-
-<p align="center"><img src="README-rsrc/visualize-redbluedoors.gif"></p>
 
 ## Files
 
