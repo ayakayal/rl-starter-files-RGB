@@ -38,7 +38,7 @@ Train, visualize and evaluate an agent on the `MiniGrid-DoorKey-5x5-v0` environm
 
 <p align="center"><img src="README-rsrc/doorkey.png"></p>
 
-1. Train the agent on the `MiniGrid-DoorKey-16x16-v0` environment with PPO algorithm and other intrinsic rewards:
+1. Train the agent on the `MiniGrid-DoorKey-16x16-v0` environment with PPO algorithm (Grid encoding obervations) and add specific intrinsic reward algorithms:
 
 ```
 python -m scripts.train --algo ppo --env MiniGrid-DoorKey-16x16-v0 --folder-name Doorkey_grid_encodings --frames 40000000 --entropy-coef 0.0005 --ir-coef 0 --seed 1 --RGB False --singleton False --pretraining False --save-heatmaps False
@@ -54,22 +54,24 @@ python -m scripts.train --algo ppo_diayn --env MiniGrid-DoorKey-16x16-v0 --folde
 python -m scripts.train --algo ppo_diayn --env MiniGrid-DoorKey-16x16-v0 --folder-name Doorkey_grid_encodings --frames 40000000 --entropy-coef 0.0005 --ir-coef 0 --seed 1 --RGB False --singleton False --pretraining False --save-heatmaps False --pretrained-model-name MiniGrid-DoorKey-16x16-v0_ppo_diayn_seed1_ir0.01_ent0.0005_sk10_dis0.0003  --folder-name-pretrained-model Doorkey_grid_encodings
 
 ```
-
+2. Train the agent on the `MiniGrid-DoorKey-8x8-v0` environment with PPO algorithm (RGB obervations) and add SimHash2 instead of State Count as intrinsic reward because it is not possible to count raw pixels:
+```
+python -m scripts.train --algo ppo_simhash2 --env MiniGrid-DoorKey-8x8-v0 --folder-name Doorkey_RGB --frames 40000000 --entropy-coef 0.0005 --ir-coef 0.005 --seed 1 --RGB True --singleton False --pretraining False --save-heatmaps False
+```
+3. Train the agent on the `MiniGrid-DoorKey-8x8-v0` environment with PPO algorithm (RGB obervations) and SimHash2 but on singleton (not procedurally generated environment) to visualize heatmaps
+```
+python -m scripts.train --algo ppo_simhash2 --env MiniGrid-DoorKey-8x8-v0 --folder-name Doorkey_RGB --frames 40000000 --entropy-coef 0.0005 --ir-coef 0.005 --seed 1 --RGB True --singleton True --pretraining False --save-heatmaps True
+```
 <p align="center"><img src="README-rsrc/train-terminal-logs.png"></p>
 
-2. Visualize agent's behavior:
+4. Visualize agent's behavior:
 
 ```
-python3 -m scripts.visualize --env MiniGrid-DoorKey-16x16-v0 --model DoorKey
+python -m scripts.visualize_edited --env MiniGrid-DoorKey-16x16-v0 --folder-name test --episodes 5 --model MiniGrid-DoorKey-16x16-v0 _ppo_seed1_ir0.0_ent0.0005 --gif Doorkey16_sing
 ```
 
 <p align="center"><img src="README-rsrc/visualize-doorkey.gif"></p>
 
-3. Evaluate agent's performance:
-
-```
-python3 -m scripts.evaluate --env MiniGrid-DoorKey-16x16-v0 --model DoorKey
-```
 
 <p align="center"><img src="README-rsrc/evaluate-terminal-logs.png"></p>
 
